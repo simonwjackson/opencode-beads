@@ -5,12 +5,22 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["opencode", "beads", "bd", "issue-tracker", "plugin", "ai-agent"],
+  "keywords": [
+    "opencode",
+    "beads",
+    "bd",
+    "issue-tracker",
+    "plugin",
+    "ai-agent"
+  ],
   "author": "simonwjackson",
   "license": "MIT",
   "repository": {

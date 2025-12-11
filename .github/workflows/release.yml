@@ -52,10 +52,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish
+      - name: Publish with provenance
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create git tag
         run: |
