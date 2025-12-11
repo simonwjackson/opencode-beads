@@ -13,12 +13,14 @@
 
 ---
 
-*36 tools for managing issues, dependencies, epics, and more with the [beads](https://github.com/simonwjackson/beads) issue tracker.*
+*36 tools for managing issues, dependencies, epics, and more with the [beads](https://github.com/steveyegge/beads) issue tracker.*
 
 [Installation](#installation) •
 [Tools](#tools) •
 [Usage](#usage) •
 [Contributing](#contributing)
+
+![Demo](demo.gif)
 
 </div>
 
@@ -44,7 +46,7 @@ opencode-beads provides a comprehensive set of tools for the beads (bd) git-nati
 | Dependency | Version | Required | Notes |
 |------------|---------|----------|-------|
 | [OpenCode](https://opencode.ai/) | `>=1.0.0` | Yes | Plugin host environment |
-| [beads (bd)](https://github.com/simonwjackson/beads) | `0.1.x` | Yes | Tested version; must be available in PATH |
+| [beads (bd)](https://github.com/steveyegge/beads) | `0.1.x` | Yes | Tested version; must be available in PATH |
 | [Bun](https://bun.sh/) | `>=1.0.0` | Yes | Runtime environment |
 | TypeScript | `>=5.0.0` | Dev only | For building from source |
 
