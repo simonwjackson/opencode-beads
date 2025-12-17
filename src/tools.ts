@@ -132,6 +132,16 @@ export const createBdShow = (runBd: BdRunner) =>
 		},
 	});
 
+/**
+ * Map human-readable priority names to bd's P0-P4 format
+ */
+const priorityMap: Record<string, string> = {
+	critical: "P0",
+	high: "P1",
+	medium: "P2",
+	low: "P3",
+};
+
 export const createBdCreate = (runBd: BdRunner) =>
 	tool({
 		description: "Create a new issue in beads.",
@@ -154,23 +164,29 @@ export const createBdCreate = (runBd: BdRunner) =>
 				.describe("Comma-separated issue IDs this depends on"),
 		},
 		async execute(args) {
-			const flags: string[] = ["--title", args.title];
-			if (args.body) flags.push("--body", args.body);
-			if (args.priority) flags.push("--priority", args.priority);
+			// Title is positional, description uses -d flag
+			const flags: string[] = [];
+			if (args.body) flags.push("-d", args.body);
+			if (args.priority) {
+				const mappedPriority = priorityMap[args.priority] ?? "P2";
+				flags.push("--priority", mappedPriority);
+			}
 			if (args.labels) {
 				for (const label of args.labels.split(",")) {
 					flags.push("--label", label.trim());
 				}
 			}
 			if (args.epic) flags.push("--epic", args.epic);
-			if (args.assignee) flags.push("--assignee", args.assignee);
+			if (args.assignee) flags.push("-a", args.assignee);
 			if (args.depends_on) {
 				for (const dep of args.depends_on.split(",")) {
-					flags.push("--depends-on", dep.trim());
+					flags.push("--deps", dep.trim());
 				}
 			}
 
-			return runBd(["create", ...flags], { successMessage: "Issue created" });
+			return runBd(["create", args.title, ...flags], {
+				successMessage: "Issue created",
+			});
 		},
 	});
 
@@ -198,8 +214,11 @@ export const createBdUpdate = (runBd: BdRunner) =>
 			const flags: string[] = [];
 			if (args.status) flags.push("--status", args.status);
 			if (args.title) flags.push("--title", args.title);
-			if (args.priority) flags.push("--priority", args.priority);
-			if (args.assignee) flags.push("--assignee", args.assignee);
+			if (args.priority) {
+				const mappedPriority = priorityMap[args.priority] ?? "P2";
+				flags.push("--priority", mappedPriority);
+			}
+			if (args.assignee) flags.push("-a", args.assignee);
 			if (args.epic) flags.push("--epic", args.epic);
 
 			return runBd(["update", ...ids, ...flags], {
@@ -246,7 +265,9 @@ export const createBdDeleteIssue = (runBd: BdRunner) =>
 		},
 		async execute(args) {
 			const ids = args.ids.split(",").map((id) => id.trim());
-			return runBd(["delete", ...ids], { successMessage: "Issue(s) deleted" });
+			return runBd(["delete", ...ids, "--force"], {
+				successMessage: "Issue(s) deleted",
+			});
 		},
 	});
 
@@ -431,7 +452,7 @@ export const createBdLabels = (runBd: BdRunner) =>
 		description: "List all labels used in the database.",
 		args: {},
 		async execute() {
-			return runBd(["label", "list", "--json"], {
+			return runBd(["label", "list-all", "--json"], {
 				successMessage: "No labels",
 			});
 		},
@@ -480,7 +501,7 @@ export const createBdDeps = (runBd: BdRunner) =>
 			id: tool.schema.string().describe("Issue ID to show dependencies for"),
 		},
 		async execute(args) {
-			return runBd(["dep", "list", args.id, "--json"], {
+			return runBd(["dep", "tree", args.id], {
 				successMessage: "No dependencies",
 			});
 		},
