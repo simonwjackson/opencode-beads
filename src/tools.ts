@@ -69,8 +69,10 @@ export function createBdRunner(shell: ShellExecutor, cwd: string): BdRunner {
 			});
 			const cmdString = ["bd", ...cmdArgs].join(" ");
 
-			// Use shell template with the command string
-			const result = await shell`${cmdString}`.cwd(cwd).nothrow().text();
+			// Use sh -c to execute the command string properly
+			// Bun's $ template treats interpolated values as single arguments,
+			// so we need sh -c to parse the full command string
+			const result = await shell`sh -c ${cmdString}`.cwd(cwd).nothrow().text();
 
 			return result || options.successMessage || "";
 		} catch (error) {
@@ -496,10 +498,11 @@ export const createBdEpicCreate = (runBd: BdRunner) =>
 			body: tool.schema.string().optional().describe("Epic description"),
 		},
 		async execute(args) {
-			const flags: string[] = ["--title", args.title];
+			// Epics are issues with --type epic
+			const flags: string[] = ["--type", "epic"];
 			if (args.body) flags.push("--body", args.body);
 
-			return runBd(["epic", "create", ...flags], {
+			return runBd(["create", args.title, ...flags], {
 				successMessage: "Epic created",
 			});
 		},
@@ -515,11 +518,12 @@ export const createBdEpics = (runBd: BdRunner) =>
 				.describe("Filter by status"),
 		},
 		async execute(args) {
-			const flags: string[] = ["--json"];
+			// Epics are issues with type=epic
+			const flags: string[] = ["--type", "epic", "--json"];
 			if (args.status && args.status !== "all")
 				flags.push("--status", args.status);
 
-			return runBd(["epic", "list", ...flags], { successMessage: "No epics" });
+			return runBd(["list", ...flags], { successMessage: "No epics" });
 		},
 	});
 
@@ -530,7 +534,8 @@ export const createBdEpicShow = (runBd: BdRunner) =>
 			id: tool.schema.string().describe("Epic ID"),
 		},
 		async execute(args) {
-			return runBd(["epic", "show", args.id, "--json"]);
+			// Use show command which displays dependents (child issues)
+			return runBd(["show", args.id, "--json"]);
 		},
 	});
 
