@@ -104,18 +104,24 @@ export const createBdList = (runBd: BdRunner) =>
 				.number()
 				.optional()
 				.describe("Maximum number of issues to return"),
-			epic: tool.schema.string().optional().describe("Filter by epic ID"),
 			assignee: tool.schema.string().optional().describe("Filter by assignee"),
+			type: tool.schema
+				.enum(["bug", "feature", "task", "epic", "chore"])
+				.optional()
+				.describe("Filter by issue type"),
 		},
 		async execute(args) {
+			// CLI uses -s for status, -l for label, -p for priority, -n for limit, -a for assignee, -t for type
 			const flags: string[] = ["--json"];
-			if (args.status && args.status !== "all")
-				flags.push("--status", args.status);
-			if (args.label) flags.push("--label", args.label);
-			if (args.priority) flags.push("--priority", args.priority);
-			if (args.limit) flags.push("--limit", String(args.limit));
-			if (args.epic) flags.push("--epic", args.epic);
-			if (args.assignee) flags.push("--assignee", args.assignee);
+			if (args.status && args.status !== "all") flags.push("-s", args.status);
+			if (args.label) flags.push("-l", args.label);
+			if (args.priority) {
+				const mappedPriority = priorityMap[args.priority] ?? "P2";
+				flags.push("-p", mappedPriority);
+			}
+			if (args.limit) flags.push("-n", String(args.limit));
+			if (args.assignee) flags.push("-a", args.assignee);
+			if (args.type) flags.push("-t", args.type);
 
 			return runBd(["list", ...flags], { successMessage: "No issues found" });
 		},
@@ -169,19 +175,16 @@ export const createBdCreate = (runBd: BdRunner) =>
 			if (args.body) flags.push("-d", args.body);
 			if (args.priority) {
 				const mappedPriority = priorityMap[args.priority] ?? "P2";
-				flags.push("--priority", mappedPriority);
+				flags.push("-p", mappedPriority);
 			}
 			if (args.labels) {
-				for (const label of args.labels.split(",")) {
-					flags.push("--label", label.trim());
-				}
+				// CLI uses -l/--labels (plural, comma-separated)
+				flags.push("-l", args.labels);
 			}
-			if (args.epic) flags.push("--epic", args.epic);
+			if (args.epic) flags.push("--parent", args.epic);
 			if (args.assignee) flags.push("-a", args.assignee);
 			if (args.depends_on) {
-				for (const dep of args.depends_on.split(",")) {
-					flags.push("--deps", dep.trim());
-				}
+				flags.push("--deps", args.depends_on);
 			}
 
 			return runBd(["create", args.title, ...flags], {
@@ -283,11 +286,12 @@ export const createBdReady = (runBd: BdRunner) =>
 			limit: tool.schema
 				.number()
 				.optional()
-				.describe("Maximum number of issues to return"),
+				.describe("Maximum number of issues to return (default: 10)"),
 		},
 		async execute(args) {
+			// CLI: -n for limit
 			const flags: string[] = ["--json"];
-			if (args.limit) flags.push("--limit", String(args.limit));
+			if (args.limit) flags.push("-n", String(args.limit));
 
 			return runBd(["ready", ...flags], { successMessage: "No ready issues" });
 		},
@@ -296,17 +300,10 @@ export const createBdReady = (runBd: BdRunner) =>
 export const createBdBlocked = (runBd: BdRunner) =>
 	tool({
 		description: "Show issues that are blocked by dependencies.",
-		args: {
-			limit: tool.schema
-				.number()
-				.optional()
-				.describe("Maximum number of issues to return"),
-		},
-		async execute(args) {
-			const flags: string[] = ["--json"];
-			if (args.limit) flags.push("--limit", String(args.limit));
-
-			return runBd(["blocked", ...flags], {
+		args: {},
+		async execute() {
+			// Note: blocked command doesn't have limit flag
+			return runBd(["blocked", "--json"], {
 				successMessage: "No blocked issues",
 			});
 		},
@@ -324,11 +321,12 @@ export const createBdSearch = (runBd: BdRunner) =>
 			limit: tool.schema
 				.number()
 				.optional()
-				.describe("Maximum number of results"),
+				.describe("Maximum number of results (default: 50)"),
 		},
 		async execute(args) {
+			// CLI: -n for limit
 			const flags: string[] = ["--json"];
-			if (args.limit) flags.push("--limit", String(args.limit));
+			if (args.limit) flags.push("-n", String(args.limit));
 
 			return runBd(["search", args.query, ...flags], {
 				successMessage: "No matching issues",
@@ -369,16 +367,17 @@ export const createBdStale = (runBd: BdRunner) =>
 			days: tool.schema
 				.number()
 				.optional()
-				.describe("Number of days to consider stale (default: 7)"),
+				.describe("Number of days to consider stale (default: 30)"),
 			limit: tool.schema
 				.number()
 				.optional()
-				.describe("Maximum number of issues to return"),
+				.describe("Maximum number of issues to return (default: 50)"),
 		},
 		async execute(args) {
+			// CLI: -d for days, -n for limit
 			const flags: string[] = ["--json"];
-			if (args.days) flags.push("--days", String(args.days));
-			if (args.limit) flags.push("--limit", String(args.limit));
+			if (args.days) flags.push("-d", String(args.days));
+			if (args.limit) flags.push("-n", String(args.limit));
 
 			return runBd(["stale", ...flags], { successMessage: "No stale issues" });
 		},
@@ -396,7 +395,8 @@ export const createBdComment = (runBd: BdRunner) =>
 			body: tool.schema.string().describe("Comment text"),
 		},
 		async execute(args) {
-			return runBd(["comment", args.id, "--body", args.body], {
+			// CLI: bd comment [issue-id] [text] (text is positional)
+			return runBd(["comment", args.id, args.body], {
 				successMessage: "Comment added",
 			});
 		},
@@ -519,9 +519,9 @@ export const createBdEpicCreate = (runBd: BdRunner) =>
 			body: tool.schema.string().optional().describe("Epic description"),
 		},
 		async execute(args) {
-			// Epics are issues with --type epic
-			const flags: string[] = ["--type", "epic"];
-			if (args.body) flags.push("--body", args.body);
+			// Epics are issues with -t epic, description uses -d
+			const flags: string[] = ["-t", "epic"];
+			if (args.body) flags.push("-d", args.body);
 
 			return runBd(["create", args.title, ...flags], {
 				successMessage: "Epic created",
@@ -539,10 +539,9 @@ export const createBdEpics = (runBd: BdRunner) =>
 				.describe("Filter by status"),
 		},
 		async execute(args) {
-			// Epics are issues with type=epic
-			const flags: string[] = ["--type", "epic", "--json"];
-			if (args.status && args.status !== "all")
-				flags.push("--status", args.status);
+			// Epics are issues with -t epic
+			const flags: string[] = ["-t", "epic", "--json"];
+			if (args.status && args.status !== "all") flags.push("-s", args.status);
 
 			return runBd(["list", ...flags], { successMessage: "No epics" });
 		},
